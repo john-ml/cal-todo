@@ -145,7 +145,7 @@ if __name__ == '__main__':
             delta -= 1
         elif cmd == 'r':
             delta += 1
-        elif cmd == 'pwd':
+        elif cmd == 'p':
             print(f'delta = {delta}')
         elif cmd == 'l':
             pp(ls(service, day_delta=delta))
@@ -170,4 +170,4 @@ if __name__ == '__main__':
             else:
                 print('mk <name of event to add>')
         else:
-            print('Valid commands: a, r, pwd, l, ok, re, rm, mk')
+            print('Valid commands: a, r, p, l, ok, re, rm, mk')
