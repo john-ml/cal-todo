@@ -105,6 +105,8 @@ def mark(service, name, state):
         e['colorId'] = DONE_COLOR
         service.events().update(calendarId='primary', eventId=e['id'], body=e).execute()
         break
+    else:
+        print('No such event')
 
 # service, str, state -> None
 def unmark(service, name, state):
@@ -114,6 +116,20 @@ def unmark(service, name, state):
             del e['colorId']
         service.events().update(calendarId='primary', eventId=e['id'], body=e).execute()
         break
+    else:
+        print('No such event')
+
+# service, str, state -> None
+def rename(service, name, state):
+    done, pending = state
+    for e in filter(lambda e: name in e['summary'], done + pending):
+        s = input('New name for ' + e['summary'] + ' (enter to abort): ')
+        if s != '':
+            e['summary'] = s
+            service.events().update(calendarId='primary', eventId=e['id'], body=e).execute()
+        break
+    else:
+        print('No such event')
 
 # service, str, state -> None
 def remove(service, name, state):
@@ -122,6 +138,8 @@ def remove(service, name, state):
         if input('Delete ' + e['summary'] + '? (y/any) ') == 'y':
             service.events().delete(calendarId='primary', eventId=e['id']).execute()
         break
+    else:
+        print('No such event')
 
 # service, str, day_delta=int -> None
 def make(service, name, day_delta=0):
@@ -159,6 +177,11 @@ if __name__ == '__main__':
                 unmark(service, args[0], ls(service, day_delta=delta))
             else:
                 print('re <substring of event name to reopen>')
+        elif cmd == 'mv':
+            if len(args) == 1:
+                rename(service, args[0], ls(service, day_delta=delta))
+            else:
+                print('mv <substring of event name to rename>')
         elif cmd == 'rm':
             if len(args) == 1:
                 remove(service, args[0], ls(service, day_delta=delta))
@@ -170,4 +193,4 @@ if __name__ == '__main__':
             else:
                 print('mk <name of event to add>')
         else:
-            print('Valid commands: a, r, p, l, ok, re, rm, mk')
+            print('Valid commands: a, r, p, l, ok, re, mv, rm, mk')
