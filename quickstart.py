@@ -52,7 +52,7 @@ def get_service():
     return build('calendar', 'v3', credentials=creds)
 
 # service, mut event -> Request
-def mk_allday(service, event):
+def mk_allday(service, cal_id, event):
     def collapse(timepoint):
         if 'date' in timepoint:
             return timepoint
@@ -60,7 +60,7 @@ def mk_allday(service, event):
         return {'date': dt[:dt.index('T')]}
     event['start'] = collapse(event['start'])
     event['end'] = collapse(event['end'])
-    return service.events().update(calendarId='primary', eventId=event['id'], body=event)
+    return service.events().update(calendarId=cal_id, eventId=event['id'], body=event)
 
 def isallday(event):
     return (
@@ -84,12 +84,12 @@ def pp(state):
     return done, pending
 
 # service, int -> state
-def ls(service, day_delta=0):
+def ls(service, cal_id, day_delta=0):
     day_l, day_r = dayspan(day_delta=day_delta)
     events = list(filter(isallday, service
         .events()
         .list(
-            calendarId='primary',
+            calendarId=cal_id,
             timeMin=day_l, timeMax=day_r,
             maxResults=50, singleEvents=True,
             orderBy='startTime')
@@ -99,53 +99,53 @@ def ls(service, day_delta=0):
     return sort(filter(isdone, events)), sort(filter(neg(isdone), events))
 
 # service, str, state -> None
-def mark(service, name, state):
+def mark(service, cal_id, name, state):
     _, pending = state
     for e in filter(lambda e: name in e['summary'], pending):
         e['colorId'] = DONE_COLOR
-        service.events().update(calendarId='primary', eventId=e['id'], body=e).execute()
+        service.events().update(calendarId=cal_id, eventId=e['id'], body=e).execute()
         break
     else:
         print('No such event')
 
 # service, str, state -> None
-def unmark(service, name, state):
+def unmark(service, cal_id, name, state):
     done, _ = state
     for e in filter(lambda e: name in e['summary'], done):
         if 'colorId' in e:
             del e['colorId']
-        service.events().update(calendarId='primary', eventId=e['id'], body=e).execute()
+        service.events().update(calendarId=cal_id, eventId=e['id'], body=e).execute()
         break
     else:
         print('No such event')
 
 # service, str, state -> None
-def rename(service, name, state):
+def rename(service, cal_id, name, state):
     done, pending = state
     for e in filter(lambda e: name in e['summary'], done + pending):
         s = input('New name for ' + e['summary'] + ' (enter to abort): ')
         if s != '':
             e['summary'] = s
-            service.events().update(calendarId='primary', eventId=e['id'], body=e).execute()
+            service.events().update(calendarId=cal_id, eventId=e['id'], body=e).execute()
         break
     else:
         print('No such event')
 
 # service, str, state -> None
-def remove(service, name, state):
+def remove(service, cal_id, name, state):
     done, pending = state
     for e in filter(lambda e: name in e['summary'], done + pending):
         if input('Delete ' + e['summary'] + '? (y/any) ') == 'y':
-            service.events().delete(calendarId='primary', eventId=e['id']).execute()
+            service.events().delete(calendarId=cal_id, eventId=e['id']).execute()
         break
     else:
         print('No such event')
 
 # service, str, day_delta=int -> None
-def make(service, name, day_delta=0):
+def make(service, cal_id, name, day_delta=0):
     day_l, _ = dayspan(day_delta=day_delta)
     day = day_l[:day_l.index('T')]
-    service.events().insert(calendarId='primary', body={
+    service.events().insert(calendarId=cal_id, body={
         'summary': name,
         'start': {'date': day},
         'end': {"date": day},
@@ -153,6 +153,7 @@ def make(service, name, day_delta=0):
 
 if __name__ == '__main__':
     service = get_service()
+    cal_id = 'primary'
     delta = 0
     while True:
         toks = input('> ').split()
@@ -166,30 +167,30 @@ if __name__ == '__main__':
         elif cmd == 'p':
             print(f'delta = {delta}')
         elif cmd == 'l':
-            pp(ls(service, day_delta=delta))
+            pp(ls(service, cal_id, day_delta=delta))
         elif cmd == 'ok':
             if len(args) == 1:
-                mark(service, args[0], ls(service, day_delta=delta))
+                mark(service, cal_id, args[0], ls(service, cal_id, day_delta=delta))
             else:
                 print('ok <substring of event name to mark as done>')
         elif cmd == 're':
             if len(args) == 1:
-                unmark(service, args[0], ls(service, day_delta=delta))
+                unmark(service, cal_id, args[0], ls(service, cal_id, day_delta=delta))
             else:
                 print('re <substring of event name to reopen>')
         elif cmd == 'mv':
             if len(args) == 1:
-                rename(service, args[0], ls(service, day_delta=delta))
+                rename(service, cal_id, args[0], ls(service, cal_id, day_delta=delta))
             else:
                 print('mv <substring of event name to rename>')
         elif cmd == 'rm':
             if len(args) == 1:
-                remove(service, args[0], ls(service, day_delta=delta))
+                remove(service, cal_id, args[0], ls(service, cal_id, day_delta=delta))
             else:
                 print('rm <substring of event name to remove>')
         elif cmd == 'mk':
             if args:
-                make(service, ' '.join(args), day_delta=delta)
+                make(service, cal_id, ' '.join(args), day_delta=delta)
             else:
                 print('mk <name of event to add>')
         else:
